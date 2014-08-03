@@ -1,15 +1,15 @@
 <?php
 /*
-Plugin Name: OSM Categories
-Plugin URI: http://kito.github.com/OSM-Categories/
-Description: OpenStreetMap plugin to embed a map with markers to articles from different categories on different layers.
+Plugin Name: OpenStreetMap Categories with Leaflet.js
+Plugin URI: http://keikreutler.github.com/OSM-Categories/
+Description: OpenStreetMap plugin to embed a map with dynamic markers, displaying article excerpts and linking to posts. You can sort map content by categories and tags.
 Version: 0.1
-Author: Guido Handrick
-Author http://guido-handrick.info
+Author: Kei Kreutler
+Author http://ourmachine.net
 License: GPL2
 */
 
-/*  Copyright 2012  Guido Handrick  (email : ghandrick@gmail.com)
+/*  Copyright 2014 Kei Kreutler  (email : kei@ourmachine.net)
 
     This program is free software; you can redistribute it and/or modify
     it under the terms of the GNU General Public License, version 2, as 
@@ -29,11 +29,6 @@ add_action( 'admin_menu', 'osm_cats_menu' );
 add_action( 'admin_init', 'register_osm_cats_settings' );
 
 function register_osm_cats_settings() {
-  register_setting( 'osm_cats', 'osm_cats_baselayer_osm' );
-  register_setting( 'osm_cats', 'osm_cats_baselayer_google_roadmap' );
-  register_setting( 'osm_cats', 'osm_cats_baselayer_google_satellite' );
-  register_setting( 'osm_cats', 'osm_cats_baselayer_google_hybrid' );
-  register_setting( 'osm_cats', 'osm_cats_baselayer_google_terrain' );
   register_setting( 'osm_cats', 'osm_cats_map_width' );
   register_setting( 'osm_cats', 'osm_cats_map_height' );
   register_setting( 'osm_cats', 'osm_cats_center_lon' );
@@ -46,66 +41,23 @@ function register_osm_cats_settings() {
   register_setting( 'osm_cats', 'osm_cats_marker_show_thumbnail' );
   register_setting( 'osm_cats', 'osm_cats_marker_show_excerpt' );
   register_setting( 'osm_cats', 'osm_cats_marker_images_path' );
+  register_setting( 'osm_cats', 'osm_cats_marker_icon' );
 }
 
 function osm_cats_menu() {
-	add_options_page( 'OSM Categories Plugin Options', 'OSM Categories', 'manage_options', 'osm_cats_plugin', 'osm_cats_plugin_options' );
+  add_options_page( 'OSM Categories Plugin Options', 'OSM Categories', 'manage_options', 'osm_cats_plugin', 'osm_cats_plugin_options' );
 }
 
 function osm_cats_plugin_options() {
-	if ( !current_user_can( 'manage_options' ) )  {
-		wp_die( __( 'You do not have sufficient permissions to access this page.' ) );
-	}
-	?>
-	<div class="wrap">
+  if ( !current_user_can( 'manage_options' ) )  {
+    wp_die( __( 'You do not have sufficient permissions to access this page.' ) );
+  }
+  ?>
+  <div class="wrap">
   <h2>OSM Categories Settings</h2>
 
   <form method="post" action="options.php">
     <?php settings_fields( 'osm_cats' ); ?>
-    
-    <h3>Base layer settings</h3>
-    <table class="form-table">
-      <tr valign="top">
-        <th scope="row">Open Street Map</th>
-        <td>
-          <input type="checkbox" name="osm_cats_baselayer_osm" id="osm_cats_baselayer_osm" value="1" <?php checked( '1', get_option( 'osm_cats_baselayer_osm' ) ); ?> />
-          <label for="osm_cats_baselayer_osm">Show the Open Street Map Layer</label><br />
-        </td>
-      </tr>
-      
-      <tr valign="top">
-        <th scope="row">Google Roadmap</th>
-        <td>
-          <input type="checkbox" name="osm_cats_baselayer_google_roadmap" id="osm_cats_baselayer_google_roadmap" value="1" <?php checked( '1', get_option( 'osm_cats_baselayer_google_roadmap' ) ); ?> />
-          <label for="osm_cats_baselayer_google_roadmap">Show the Google Roadmap Layer</label><br />
-        </td>
-      </tr>
-      
-      <tr valign="top">
-        <th scope="row">Google Satellit</th>
-        <td>
-          <input type="checkbox" name="osm_cats_baselayer_google_satellite" id="osm_cats_baselayer_google_satellite" value="1" <?php checked( '1', get_option( 'osm_cats_baselayer_google_satellite' ) ); ?> />
-          <label for="osm_cats_baselayer_google_satellite">Show the Google Satellite Layer</label><br />
-        </td>
-      </tr>
-      
-      <tr valign="top">
-        <th scope="row">Google Hybrid</th>
-        <td>
-          <input type="checkbox" name="osm_cats_baselayer_google_hybrid" id="osm_cats_baselayer_google_hybrid" value="1" <?php checked( '1', get_option( 'osm_cats_baselayer_google_hybrid' ) ); ?> />
-          <label for="osm_cats_baselayer_google_hybrid">Show the Google Hybrid Layer</label><br />
-        </td>
-      </tr>
-      
-      <tr valign="top">
-        <th scope="row">Google Terrain</th>
-        <td>
-          <input type="checkbox" name="osm_cats_baselayer_google_terrain" id="osm_cats_baselayer_google_terrain" value="1" <?php checked( '1', get_option( 'osm_cats_baselayer_google_terrain' ) ); ?> />
-          <label for="osm_cats_baselayer_google_terrain">Show the Google Terrain Layer</label><br />
-        </td>
-      </tr>
-      
-    </table>
     
     <h3>General Map settings</h3>
     <table class="form-table">
@@ -130,7 +82,7 @@ function osm_cats_plugin_options() {
         <th scope="row">Zoom Level</th>
         <td>
           <input type="text" name="osm_cats_zoom_level" value="<?php echo get_option('osm_cats_zoom_level'); ?>" />
-          <small>Default is 12, the OSM values range is from 0 to 18.</small>
+          <small>Default is 12, OSM zoom values range from 0 to 18, with 18 being the most zoomed in.</small>
         </td>
       </tr>
       
@@ -138,7 +90,7 @@ function osm_cats_plugin_options() {
         <th scope="row">Zoom Wheel</th>
         <td>
           <input type="checkbox" name="osm_cats_disable_zoom_wheel" id="osm_cats_disable_zoom_wheel" value="1" <?php checked( '1', get_option( 'osm_cats_disable_zoom_wheel' ) ); ?> />
-          <label for="osm_cats_disable_zoom_wheel">Disable zoom by mouse wheel or touchpad</label><br />
+          <label for="osm_cats_disable_zoom_wheel">Disable zoom by mouse wheel or touchpad.</label><br />
         </td>
       </tr>
       
@@ -152,34 +104,31 @@ function osm_cats_plugin_options() {
         <td><input type="text" name="osm_cats_center_lat" value="<?php echo get_option('osm_cats_center_lat'); ?>" /></td>
       </tr>
     </table>
+
+
     <h3>Category settings</h3>
     <table class="form-table">
       <tr valign="top">
         <th scope="row">Include categories</th>
         <td>
           <input type="text" name="osm_cats_include_cats" value="<?php echo get_option('osm_cats_include_cats'); ?>" />
-          <small>A comma seperatet list of category ID's.</small>
+          <small>A comma separated list of category IDs.</small>
         </td>
       </tr>
       <tr valign="top">
         <th scope="row">Exclude categories</th>
         <td>
           <input type="text" name="osm_cats_exclude_cats" value="<?php echo get_option('osm_cats_exclude_cats'); ?>" />
-          <small>A comma seperatet list of category ID's.</small>
+          <small>A comma separated list of category IDs.</small>
         </td>
       </tr>
     </table>
+
+
     <h3>Marker settings</h3>
-    <p>To place an article marker on the map fill out this custom field with the geographic coordinates seperatet by comma.</p>
     <table class="form-table">  
+
       <tr valign="top">
-        <th scope="row">LonLat Custom Field</th>
-        <td>
-          <input type="text" name="osm_cats_marker_custom_field" value="<?php echo get_option('osm_cats_marker_custom_field'); ?>" />
-          <small>Name of the custom field for LonLat parameter of an article. Default is LonLat.</small>
-        </td>
-      </tr>
-      
       <th scope="row">Marker popup settings</th>
         <td>
           <input type="checkbox" name="osm_cats_marker_show_thumbnail" id="osm_cats_marker_show_thumbnail" value="1" <?php checked( '1', get_option( 'osm_cats_marker_show_thumbnail' ) ); ?> />
@@ -188,11 +137,11 @@ function osm_cats_plugin_options() {
           <label for="osm_cats_marker_show_excerpt">Show article excerpt</label>
         </td>
       </tr>
-    </table>  
+    </table> 
     
     <h4>How to create your own marker images</h4>
     <ol>
-      <li>Create your own marker images for each category, ore one for all.</li>
+      <li>Create your own marker images for each category or one for all.</li>
       <li>Name your images: marker_CATEGORY-ID.png or just marker.png</li>
       <li>Create a folder on your webserver, for example: /wp-content/osm-marker</li>
       <li>Copy your images to this folder.</li>
@@ -230,6 +179,7 @@ function osm_cats_plugin_options() {
     </p>
 
   </form>
+  <!-- external scripts used to be here -->
   </div>
   <?php
 }
@@ -238,223 +188,302 @@ function osm_cats_code( $atts ){
   //
   $message = '';
 
-  // get baselayer
-   $baselayer_osm = get_option('osm_cats_baselayer_osm');
-   $baselayer_google_roadmap = get_option('osm_cats_baselayer_google_roadmap');
-   $baselayer_google_satellite = get_option('osm_cats_baselayer_google_satellite');
-   $baselayer_google_hybrid = get_option('osm_cats_baselayer_google_hybrid');
-   $baselayer_google_terrain = get_option('osm_cats_baselayer_google_terrain');
 
-  // get option for map width, if not set switch to 100% by default
+  // Get option for map width, if not set switch to 100% by default
   $map_width_check = get_option('osm_cats_map_width');
   $map_width = ($map_width_check)?$map_width_check:'100%';
 
-  // get option for map height, if not set switch to 300px by default
+  // Get option for map height, if not set switch to 300px by default
   $map_height_check = get_option('osm_cats_map_height');
   $map_height = ($map_height_check)?$map_height_check:'300px';
 
-  // get option for map center
-  $map_center = get_option('osm_cats_center_lon').','.get_option('osm_cats_center_lat');
+  // Get option for map center
+  $map_center = get_option('osm_cats_center_lat').','.get_option('osm_cats_center_lon');
 
-  // get option for map zoom level, if not set switch to 12 by default
+  // Get option for map zoom level, if not set switch to 12 by default
   $zoom_level_check = get_option('osm_cats_zoom_level');
   $zoom_level = ($zoom_level_check)?$zoom_level_check:12;
   
-  // get options for disable zoom wheel
+  // Get options for disable zoom wheel
   $disable_zoom_wheel = get_option('osm_cats_disable_zoom_wheel');
 
-  // get exluded categories
+  // Get exluded categories
   $exclude_cats = get_option('osm_cats_exclude_cats');
   $include_cats = get_option('osm_cats_include_cats');
 
-  // get option for article lonlat custom field, if not set switch to LonLat by default
-  $lonlat_custom_field_check = get_option('osm_cats_marker_custom_field');
-  $lonlat_custom_field = ($lonlat_custom_field_check)?$lonlat_custom_field_check:'LonLat';
+  // Get option for article latlng custom field, if not set switch to latlng by default
+  $latlng_custom_field_check = get_option('osm_cats_marker_custom_field');
+  $latlng_custom_field = ($latlng_custom_field_check)?$latlng_custom_field_check:'latlng';
+
   
-  // get options for marker popup
+  // Get options for marker popup
   $show_thumbnail = get_option('osm_cats_marker_show_thumbnail');
   $show_excerpt = get_option('osm_cats_marker_show_excerpt');
   
-  // get option for marker image path
+  // Get option for marker image path
   $marker_image_path = get_option('osm_cats_marker_images_path');
   
-  // if no center is defined in the settings set center to 0,0 and zoom to 0, echo info message
+  // If no center is defined in the settings set center to 0,0 and zoom to 0, echo info message
   if($map_center == ',') {
     $map_center = '0,0';
     $zoom_level = 0;
     $message = 'Please define the center of your map on the <a href="/wp-admin/options-general.php?page=osm_cats_plugin">plugin settings page</a>.';
   }
 
-  // get categories for map layers
+  // Get categories for map layers
   $args = array(
     'exclude' => $exclude_cats,
   );
   $categories=get_categories($args);
+  $tags = get_tags($args);
   
-  // get posts for markers
+  // Get posts for markers
   $args = array('posts_per_page' => -1);
   if( $include_cats ) $args['category__in'] = explode(',',$include_cats);
   if( $exclude_cats ) $args['category__not_in'] = explode(',',$exclude_cats);
   query_posts($args);
   
-  // the markup starts here
+  // The markup starts here
   ?>
-  <style>
-    #mapdiv img { max-width: none; }
-  </style>
-  <div id="mapdiv" style="height: <?php echo $map_height; ?>; width: <?php echo $map_width; ?>;"></div>
+
+
+
+  <div id="map" style="height: <?php echo $map_height; ?>; width: <?php echo $map_width; ?>;">
+    <div style="position: absolute; bottom: 0; left: 10px; z-index: 10000;">
+        <form method="post" name="geojson_exporter_form" onclick="download(geoJSONData)">
+            <p class="submit"><input type="submit" name="Submit" value="Export to GeoJSON" /></p>
+        </form>
+    </div>
+  </div>
+
+
+
   <?php echo ($message)?"<p>$message</p>":""; ?>
-  <script src="http://www.openlayers.org/api/OpenLayers.js"></script>
-  <script src="http://maps.google.com/maps/api/js?sensor=false" ></script>
+
+  <link rel="stylesheet" href="http://cdn.leafletjs.com/leaflet-0.7.3/leaflet.css" />
+  <script src="http://cdn.leafletjs.com/leaflet-0.7.3/leaflet.js"></script>
+  <script src='https://api.tiles.mapbox.com/mapbox.js/v1.6.4/mapbox.js'></script>
+  <link href='https://api.tiles.mapbox.com/mapbox.js/v1.6.4/mapbox.css' rel='stylesheet' />
+
   <script>
     var map;
-    var layer, markers, size, offset, icon;
+    var layer, markers, tags, size, offset, icon;
     var currentPopup;
     var zoom;
-    var center
+    var center;
+    var layer_control, tag_control;
+    var baseLayer;
+    var geoJSONData = [];
     
-    // marker popup style
-    AutoSizeAnchored = OpenLayers.Class(OpenLayers.Popup.Anchored, {
-      'autoSize': true
-    });
     
-    // inital function for the osm map
+    // Initalize function for the OSM map
     function init(){
-      map = new OpenLayers.Map('mapdiv');
+      map = L.map('map');
       
+      // Add an OpenStreetMap tile layer
+      baseLayer = L.tileLayer('http://{s}.tile.osm.org/{z}/{x}/{y}.png', {
+        attribution: '&copy; <a href="http://osm.org/copyright">OpenStreetMap</a> contributors'
+      })
+        .addTo(map);
+
+      // Create box to change overlays
+      layer_control = L.control.layers(null, null, {
+        collapsed: false
+      })
+        .addTo(map);
+
+      // Create box to change overlays
+      tag_control = L.control.layers(null, null, {
+        collapsed: true
+      })
+        .addTo(map);
+
       <?php
-      // add layers from settings
-      if ($baselayer_osm) echo "map.addLayer(new OpenLayers.Layer.OSM());";
-      if ($baselayer_google_terrain) echo "map.addLayers([new OpenLayers.Layer.Google(\"Google Terrain\", {type: google.maps.MapTypeId.TERRAIN},{'isBaseLayer':true})]);";
-      if ($baselayer_google_roadmap) echo "map.addLayers([new OpenLayers.Layer.Google(\"Google Roadmap\", {type: google.maps.MapTypeId.ROADMAP},{'isBaseLayer':true})]);";
-      if ($baselayer_google_satellite) echo "map.addLayers([new OpenLayers.Layer.Google(\"Google Satellite\", {type: google.maps.MapTypeId.SATELLITE},{'isBaseLayer':true})]);";
-      if ($baselayer_google_hybrid) echo "map.addLayers([new OpenLayers.Layer.Google(\"Google Hybrid\", {type: google.maps.MapTypeId.HYBRID},{'isBaseLayer':true})]);";
-      
-      // default osm layer             
-      if (!$baselayer_osm && !$baselayer_google_terrain && !$baselayer_google_roadmap && $baselayer_google_satellite && !$baselayer_google_hybrid)
-        echo "map.addLayer(new OpenLayers.Layer.OSM());";
-      ?>
-        
-      <?php
-      // create a layer for every category 
       foreach($categories as $category) {
-        echo "markers_$category->cat_ID = new OpenLayers.Layer.Markers('$category->cat_name');";
-        echo "map.addLayer(markers_$category->cat_ID);";
-      }
+        // Create a layer for every category
+        echo "markers_$category->cat_ID = L.layerGroup();";
+        // Add layers to map
+        echo "markers_$category->cat_ID.addTo(map);";
+        // Add layers to directory (control.layers)
+        echo "layer_control.addOverlay(markers_$category->cat_ID, '$category->cat_name');";
+      };
+      ?>
+      
+      <?php
+      foreach($tags as $tag) {
+          echo "tags_$tag->term_id = L.layerGroup();";
+          // Add layers to map
+          echo "tags_$tag->term_id.addTo(map);";
+          // Add layers to directory (control.layers)
+          echo "tag_control.addOverlay(tags_$tag->term_id, '$tag->name');";
+        };
+      
       ?>
 
-      map.addControl(new OpenLayers.Control.LayerSwitcher());
-      
       <?php
-      // disable mouse zoom wheel if checked
+      // Disable mouse zoom wheel if checked
       if ($disable_zoom_wheel) {
-        echo "controls = map.getControlsByClass('OpenLayers.Control.Navigation');";
-        echo "for(var i = 0; i < controls.length; ++i)";
-        echo "controls[i].disableZoomWheel();";
+        echo "map.scrollWheelZoom.disable();" ;
       }
       ?>
       
-      
-      // set zoom
-      zoom = <?php echo $zoom_level; ?>;
-      // center map
-      center = new OpenLayers.LonLat( <?php echo $map_center; ?> )
-              .transform(
-                new OpenLayers.Projection("EPSG:4326"), // transform from WGS 1984
-                map.getProjectionObject() // to Spherical Mercator Projection
-            );
-      map.setCenter (center, zoom);
+      // Set map center and zoom
+      center = L.latLng( <?php echo $map_center; ?> );    
+      map.setView(center, <?php echo $zoom_level; ?>);
 
       addMarkers();
     }
     
     function addMarkers() {
-      var ll, layer, popupContentHTML;
+      var ll, layer, popupContentHTML, parsedContent, marker_icon;
       
       <?php
-      // add a marker for every post
+      // Add a marker for every post
       if (have_posts()) {
         while (have_posts()) {
           $custom_icon = false;
           the_post();
-          $lonlat_value = get_post_meta(get_the_ID(), $lonlat_custom_field, true);
-          if($lonlat_value != '') {
-            echo "ll = new OpenLayers.LonLat( $lonlat_value ).transform(new OpenLayers.Projection('EPSG:4326'), map.getProjectionObject());";
-            
+
+          if(get_field('coordinates')) {
+            $values = get_field('coordinates');
+            $lat = $values['lat'];
+            $lng = $values['lng'];
+            $latlng_value = "[".$lat.",".$lng."]";
+          } else if(get_post_meta(get_the_ID(), $latlng_custom_field, true)) {
+            $latlng_value = '['.get_post_meta(get_the_ID(), $latlng_custom_field, true).']';
+          } else {
+            $latlng_value = '[,]';
+          }
+
+
+          if($latlng_value != '[,]') {
+            echo "ll = L.latLng($latlng_value);";
+
             $show_thumbnail_markup = ($show_thumbnail)?"<a href=\'".get_permalink()."\'>".get_the_post_thumbnail(get_the_ID(),'thumbnail')."</a>":"";
+            echo "var title = '".get_the_title()."';";          
             $show_title_markup = "<a href=\'".get_permalink()."\'><h3>".get_the_title()."</h3></a>";
-            $show_excerpt_markup = ($show_excerpt)?"<p><small>".get_the_excerpt()."</small></p>":"";
+            // Parse the excerpt for invalid characters !important
+            $find_text = array("'",'<br />',' />','&',';');
+            $replace_text = array("\'",'','>','','');
+            $post_excerpt = str_replace($find_text,$replace_text,get_the_excerpt());
+            $show_excerpt_markup = ($show_excerpt)?"<p><small>".$post_excerpt."</small></p>":"";
             
             echo "popupContentHTML = '".$show_thumbnail_markup.$show_title_markup.$show_excerpt_markup."';";
-            
+
             $category = get_the_category();
+
+            $category_name = $category[0]->cat_name; 
             
             echo "layer = markers_".$category[0]->term_id.";";
+
+            echo "var new_marker = addMarker(ll, popupContentHTML, layer, title, '".$category_name."');";
+            
+            $posttags = wp_get_post_tags( get_the_ID() );
+            if ($posttags) {
+              foreach($posttags as $tag) {
+                echo "tags_$tag->term_id.addLayer(new_marker);";
+              }
+            }
             
             $image_path = $_SERVER['DOCUMENT_ROOT'].$marker_image_path."/marker_".$category[0]->term_id.".png";
             if(file_exists($image_path)) {
               list($width, $height)= getimagesize($image_path); 
-              echo "size = new OpenLayers.Size(".$width.",".$height.");";
-              echo "offset = new OpenLayers.Pixel(-(size.w/2), -size.h);";
-              echo "icon = new OpenLayers.Icon('".$marker_image_path."/marker_".$category[0]->term_id.".png', size, offset);"; 
+              echo "marker_icon = L.icon({
+                  iconUrl: '".$marker_image_path."/marker_".$category[0]->term_id.".png',
+                  iconSize: [".$width.", ".$height."],
+                  iconAnchor: [0, 0],
+                  popupAnchor: [15, 5]
+              });";
               $custom_icon = true;
             } else {
               $image_path = $_SERVER['DOCUMENT_ROOT'].$marker_image_path."/marker.png";
               if(file_exists($image_path)) {
                 list($width, $height)= getimagesize($image_path); 
-                echo "size = new OpenLayers.Size(".$width.",".$height.");";
-                echo "offset = new OpenLayers.Pixel(-(size.w/2), -size.h);";
-                echo "icon = new OpenLayers.Icon('".$marker_image_path."/marker.png', size, offset);"; 
+                echo "marker_icon = L.icon({
+                    iconUrl: '".$marker_image_path."/marker.png',
+                    iconSize: [".$width.", ".$height."],
+                    iconAnchor: [9, 21],
+                    popupAnchor:  [0, -".$height."]
+                });";
                 $custom_icon = true;
               }
             }
-            echo ($custom_icon)?"addMarker(ll, popupContentHTML, layer, icon);":"addMarker(ll, popupContentHTML, layer, false);";
+
+            if($custom_icon) {
+              echo "new_marker.setIcon(marker_icon);";
+            };
+
+            // echo ($custom_icon)?"addMarker(ll, popupContentHTML, layer, marker_icon);":"addMarker(ll, popupContentHTML, layer, false);";
           }
         }
       }
       ?>
     }
     
-    function addMarker(ll, popupContentHTML, layer, icon) {
-      
-      // create marker and popup
-      var feature = new OpenLayers.Feature(layer, ll); 
-      feature.closeBox = true;
-      feature.popupClass = AutoSizeAnchored;
-      feature.data.popupContentHTML = popupContentHTML;
-      feature.data.overflow = "auto";
-      if (icon) feature.data.icon = icon;
-      
-      var marker = feature.createMarker();
-      
-      var markerClick = function (evt) {
-          if (this.popup == null) {
-              this.popup = this.createPopup(this.closeBox);
-              map.addPopup(this.popup);
-              this.popup.show();
-          } else {
-              this.popup.toggle();
-          }
-          currentPopup = this.popup;
-          
-          // close all existing popups except the current
-          var pops = map.popups;
-          for(var a = 0; a < pops.length; a++){
-            if (map.popups[a] != currentPopup) {
-              map.popups[a].hide();
-            }
-          };
-          
-          OpenLayers.Event.stop(evt);
-      };
-      
-      marker.events.register("mousedown", feature, markerClick); 
+    function addMarker(ll, popupContentHTML, layer, title, category) {
 
-      layer.addMarker(marker);
-      
+      var marker = L.marker(ll);
+
+      if(popupContentHTML.search('iframe') > 0) {
+        var popup = L.popup({
+          maxWidth: 275,
+          minWidth: 275
+        });
+        popup.setContent(popupContentHTML);
+        marker.bindPopup(popup);
+      } else {
+        marker.bindPopup(popupContentHTML);
+      }
+
+      layer.addLayer(marker);
+
+      makeJSON(marker, title, category, popupContentHTML);
+
+      return marker;
+    }
+
+    function makeJSON(marker, title, category, content){
+      var markerJSON = marker.toGeoJSON();
+      markerJSON["title"] = title;
+      markerJSON["category"] = category;
+      markerJSON["description"] = content;
+      geoJSONData.push(markerJSON);
     }
     
-    // init call
+    function geoJSON_export(){
+              // A name with a time stamp, to avoid duplicate filenames
+        <?php
+        $filename = "geojson-$ts.csv";
+
+        // Tells the browser to expect a CSV file and bring up the
+        // save dialog in the browser
+        header( 'Content-Type: text' );
+        header( 'Content-Disposition: attachment;filename='.$filename);
+
+        // This opens up the output buffer as a "file"
+        $fp = fopen('php://output', 'w');
+
+
+        // Then, write every record to the output buffer in CSV format
+        //foreach ($result as $data) {
+          //  fputcsv($fp, $data);
+        //}
+        // Close the output buffer (Like you would a file)
+        fclose($fp);
+        ?>
+
+    }
+
+    function download(text) {
+      text = JSON.stringify(text, null, 1);
+      text = text.substring(1, text.length-1);
+      var pom = document.createElement('a');
+      pom.setAttribute('href', 'data:text/plain;charset=utf-8,' + encodeURIComponent(text));
+      pom.setAttribute('download', 'hello.txt');
+      pom.click();
+    }
+
+    // Init call
     init();
   </script>
   <?php
